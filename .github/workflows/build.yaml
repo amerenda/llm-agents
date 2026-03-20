@@ -13,7 +13,7 @@ env:
 
 jobs:
   detect-changes:
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     outputs:
       piper: ${{ steps.changes.outputs.piper }}
     steps:
@@ -28,7 +28,7 @@ jobs:
   test-piper:
     needs: detect-changes
     if: needs.detect-changes.outputs.piper == 'true' || startsWith(github.ref, 'refs/tags/release/')
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,7 +47,7 @@ jobs:
   build-piper:
     needs: test-piper
     if: github.event_name != 'pull_request'
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
