@@ -51,7 +51,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       pr_prefix: ${{ steps.tag.outputs.pr_prefix }}
     container:
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      image: amerenda/k3s-runners:kaniko
     steps:
       - uses: actions/checkout@v4
 
