@@ -88,8 +88,8 @@ jobs:
           sed -i "s|amerenda/llm-agents:piper-[^ ]*|amerenda/llm-agents:piper-${TAG}|g" \
             apps/llm-agents/piper/deployment.yaml
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "claude-automation"
+          git config user.email "claude-automation@amerenda.com"
           git add -A
           git diff --cached --quiet && exit 0
           git commit -m "${PREFIX}: llm-agents piper ${TAG}"
