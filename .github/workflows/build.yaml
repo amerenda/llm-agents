@@ -1,6 +1,7 @@
 name: Build and Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     tags: ['release/v*']
@@ -14,8 +15,6 @@ env:
 jobs:
   detect-changes:
     runs-on: arc-runner-set
-    container:
-      image: node:20-alpine
     outputs:
       piper: ${{ steps.changes.outputs.piper }}
     steps:
@@ -45,24 +44,15 @@ jobs:
           cd piper
           python -m pytest test_piper.py -v
 
-  build-piper:
+  build-and-deploy-piper:
     needs: test-piper
     if: github.event_name != 'pull_request'
     runs-on: arc-runner-set
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      pr_prefix: ${{ steps.tag.outputs.pr_prefix }}
-    container:
-      image: amerenda/k3s-runners:kaniko
-      env:
-        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set image tag
         id: tag
-        shell: bash
         run: |
           if [[ "$GITHUB_REF" == refs/tags/release/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/release/}"
@@ -73,39 +63,22 @@ jobs:
             echo "pr_prefix=deploy" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
       - name: Build and push
-        shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          mkdir -p /kaniko/.docker
-          AUTH=$(echo -n "${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}" | base64)
-          echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"${AUTH}\"}}}" > /kaniko/.docker/config.json
-          /kaniko/executor \
-            --context="${GITHUB_WORKSPACE}/piper" \
-            --dockerfile=Dockerfile \
-            --destination="${IMAGE}:piper-${TAG}" \
-            --destination="${IMAGE}:piper-latest" \
-            --cache=true \
-            --cache-repo="${IMAGE}:cache"
-
-  deploy-piper:
-    needs: build-piper
-    if: github.event_name != 'pull_request'
-    runs-on: arc-runner-set
-    container:
-      image: ubuntu:22.04
-      env:
-        GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
-    steps:
-      - name: Install git and curl
-        run: apt-get update && apt-get install -y git curl
+          docker build -t "${IMAGE}:piper-${TAG}" -t "${IMAGE}:piper-latest" ./piper
+          docker push "${IMAGE}:piper-${TAG}"
+          docker push "${IMAGE}:piper-latest"
 
       - name: Raise PR to gitops
-        shell: bash
         env:
-          TAG: ${{ needs.build-piper.outputs.tag }}
-          PREFIX: ${{ needs.build-piper.outputs.pr_prefix }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          PREFIX: ${{ steps.tag.outputs.pr_prefix }}
+          GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
         run: |
           git clone https://x-access-token:${GITOPS_PAT}@github.com/${GITOPS_REPO}.git /tmp/gitops
           cd /tmp/gitops
