@@ -52,23 +52,27 @@ jobs:
       pr_prefix: ${{ steps.tag.outputs.pr_prefix }}
     container:
       image: amerenda/k3s-runners:kaniko
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set image tag
         id: tag
+        shell: bash
         run: |
-          if echo "$GITHUB_REF" | grep -q "^refs/tags/release/"; then
-            VERSION=$(echo "$GITHUB_REF" | sed 's|refs/tags/release/||')
+          if [[ "$GITHUB_REF" == refs/tags/release/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/release/}"
             echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
             echo "pr_prefix=release" >> "$GITHUB_OUTPUT"
           else
-            SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
-            echo "tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
             echo "pr_prefix=deploy" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push
+        shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
@@ -87,12 +91,19 @@ jobs:
     needs: build-piper
     if: github.event_name != 'pull_request'
     runs-on: arc-runner-set
+    container:
+      image: ubuntu:22.04
+      env:
+        GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
     steps:
+      - name: Install git and curl
+        run: apt-get update && apt-get install -y git curl
+
       - name: Raise PR to gitops
+        shell: bash
         env:
           TAG: ${{ needs.build-piper.outputs.tag }}
           PREFIX: ${{ needs.build-piper.outputs.pr_prefix }}
-          GH_TOKEN: ${{ env.GITOPS_PAT }}
         run: |
           git clone https://x-access-token:${GITOPS_PAT}@github.com/${GITOPS_REPO}.git /tmp/gitops
           cd /tmp/gitops
