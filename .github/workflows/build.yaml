@@ -109,7 +109,7 @@ jobs:
 
   notify-failure:
     if: failure()
-    needs: [detect-changes, test-piper, build-piper, deploy-piper]
+    needs: [detect-changes, test-piper, build-and-deploy-piper]
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub Issue for build failure
