@@ -14,7 +14,7 @@ env:
 
 jobs:
   detect-changes:
-    runs-on: arc-runner-set
+    runs-on: [self-hosted, mac-mini]
     outputs:
       piper: ${{ steps.changes.outputs.piper }}
     steps:
@@ -29,25 +29,20 @@ jobs:
   test-piper:
     needs: detect-changes
     if: needs.detect-changes.outputs.piper == 'true' || startsWith(github.ref, 'refs/tags/release/')
-    runs-on: arc-runner-set
-    container:
-      image: python:3.12-slim
+    runs-on: [self-hosted, mac-mini]
     steps:
       - uses: actions/checkout@v6
-      - name: Install dependencies
+      - name: Run tests in container
         run: |
-          cd piper
-          pip install -r requirements.txt
-          pip install pytest httpx
-      - name: Run tests
-        run: |
-          cd piper
-          python -m pytest test_piper.py -v
+          docker run --rm -v "$PWD/piper:/app" -w /app python:3.12-slim bash -c "
+            pip install -q -r requirements.txt pytest httpx &&
+            python -m pytest test_piper.py -v
+          "
 
   build-and-deploy-piper:
     needs: test-piper
     if: github.event_name != 'pull_request'
-    runs-on: arc-runner-set
+    runs-on: [self-hosted, mac-mini]
     steps:
       - uses: actions/checkout@v6
 
