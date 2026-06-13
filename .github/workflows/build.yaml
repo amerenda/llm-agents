@@ -42,7 +42,7 @@ jobs:
   set-tag:
     needs: test-piper
     if: github.event_name != 'pull_request'
-    runs-on: arc-runner-set
+    runs-on: arc-runner-llm-agents
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       pr_prefix: ${{ steps.tag.outputs.pr_prefix }}
@@ -61,7 +61,7 @@ jobs:
 
   build-amd64:
     needs: set-tag
-    runs-on: arc-runner-set
+    runs-on: arc-runner-llm-agents
     steps:
       - uses: actions/checkout@v6
       - name: Login to Docker Hub
@@ -85,7 +85,7 @@ jobs:
 
   manifest:
     needs: [set-tag, build-amd64, build-arm64]
-    runs-on: arc-runner-set
+    runs-on: arc-runner-llm-agents
     steps:
       - name: Login to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
@@ -103,7 +103,7 @@ jobs:
 
   deploy:
     needs: [set-tag, manifest]
-    runs-on: arc-runner-set
+    runs-on: arc-runner-llm-agents
     steps:
       - uses: actions/checkout@v6
       - name: Raise PR to gitops
